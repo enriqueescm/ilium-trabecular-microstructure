@@ -137,3 +137,58 @@ p_combined <- p1 / p2 / p3 +
 p_combined
 ggsave("figures/01_descriptive_by_age.png", p_combined, 
        width = 12, height = 14, dpi = 300)
+
+# ---- REGRESSION ANALYSIS ----
+
+# Create age groups: pre-crawling (0-5 months) vs crawling onset (6-14 months)
+data <- data %>%
+  mutate(age_group = factor(
+    ifelse(age <= 5, "Pre-crawling (0-5m)", "Crawling onset (6-14m)"),
+    levels = c("Pre-crawling (0-5m)", "Crawling onset (6-14m)")
+  ))
+
+# Linear regression BV/TV ~ age for each region
+regression_results <- data %>%
+  group_by(region) %>%
+  summarise(
+    slope_bvtv = coef(lm(bvtv ~ age))[2],
+    pval_bvtv  = summary(lm(bvtv ~ age))$coefficients[2, 4],
+    slope_tbth = coef(lm(tb_th ~ age))[2],
+    pval_tbth  = summary(lm(tb_th ~ age))$coefficients[2, 4],
+    slope_tbn  = coef(lm(tb_n ~ age))[2],
+    pval_tbn   = summary(lm(tb_n ~ age))$coefficients[2, 4]
+  ) %>%
+  mutate(across(starts_with("slope"), ~ round(.x, 4)),
+         across(starts_with("pval"), ~ round(.x, 4)))
+
+print(regression_results)
+
+# Boxplot by age group and region
+p4 <- data %>%
+  pivot_longer(cols = c(bvtv, tb_th, tb_n),
+               names_to = "variable", values_to = "value") %>%
+  mutate(variable = factor(variable,
+                           levels = c("bvtv", "tb_th", "tb_n"),
+                           labels = c("BV/TV", "Tb.Th (mm)", "Tb.N (1/mm)"))) %>%
+  ggplot(aes(x = age_group, y = value, fill = region)) +
+  geom_boxplot(alpha = 0.7, outlier.size = 1) +
+  facet_grid(variable ~ region, scales = "free_y") +
+  scale_fill_manual(values = region_colors, guide = "none") +
+  labs(
+    title = "Trabecular Parameters: Pre-crawling vs Crawling Onset",
+    subtitle = "Comparison across anatomical regions | 65 individuals",
+    x = NULL,
+    y = "Value",
+    caption = "Pre-crawling: 0-5 months | Crawling onset: 6-14 months"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    panel.grid.minor = element_blank(),
+    strip.text = element_text(face = "bold")
+  )
+
+p4
+ggsave("figures/02_precrawling_vs_crawling.png", p4,
+       width = 14, height = 10, dpi = 300)
