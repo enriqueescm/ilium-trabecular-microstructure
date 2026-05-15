@@ -192,3 +192,68 @@ p4 <- data %>%
 p4
 ggsave("figures/02_precrawling_vs_crawling.png", p4,
        width = 14, height = 10, dpi = 300)
+# ---- STATISTICAL TESTS ----
+
+# Wilcoxon test: pre-crawling vs crawling onset for each variable and region
+# We use Wilcoxon (non-parametric) because n is small and normality is not guaranteed
+
+wilcoxon_results <- data %>%
+  group_by(region) %>%
+  summarise(
+    # BV/TV
+    w_bvtv = wilcox.test(bvtv ~ age_group)$statistic,
+    p_bvtv = wilcox.test(bvtv ~ age_group)$p.value,
+    # Tb.Th
+    w_tbth = wilcox.test(tb_th ~ age_group)$statistic,
+    p_tbth = wilcox.test(tb_th ~ age_group)$p.value,
+    # Tb.N
+    w_tbn = wilcox.test(tb_n ~ age_group)$statistic,
+    p_tbn = wilcox.test(tb_n ~ age_group)$p.value
+  ) %>%
+  mutate(across(starts_with("p_"), ~ round(.x, 4)),
+         across(starts_with("w_"), ~ round(.x, 1)))
+
+print(wilcoxon_results)
+
+# Effect size (r = Z/sqrt(N)) for significant results
+# Correlation between age and each variable per region
+correlation_results <- data %>%
+  group_by(region) %>%
+  summarise(
+    r_bvtv = round(cor(age, bvtv, method = "spearman"), 3),
+    r_tbth = round(cor(age, tb_th, method = "spearman"), 3),
+    r_tbn  = round(cor(age, tb_n, method = "spearman"), 3)
+  )
+
+print(correlation_results)
+
+# Visualize correlations as heatmap
+cor_long <- correlation_results %>%
+  pivot_longer(cols = c(r_bvtv, r_tbth, r_tbn),
+               names_to = "variable", values_to = "r") %>%
+  mutate(variable = factor(variable,
+                           levels = c("r_bvtv", "r_tbth", "r_tbn"),
+                           labels = c("BV/TV", "Tb.Th", "Tb.N")))
+
+p5 <- ggplot(cor_long, aes(x = variable, y = region, fill = r)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  geom_text(aes(label = r), size = 4, fontface = "bold") +
+  scale_fill_gradient2(low = "#377EB8", mid = "white", high = "#E41A1C",
+                       midpoint = 0, limits = c(-1, 1),
+                       name = "Spearman r") +
+  labs(
+    title = "Correlation Between Age and Trabecular Parameters by Region",
+    subtitle = "Spearman correlation | Negative = decreases with age | Positive = increases with age",
+    x = "Trabecular Parameter",
+    y = NULL,
+    caption = "Blue = negative correlation | Red = positive correlation"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    panel.grid = element_blank(),
+    axis.text = element_text(face = "bold")
+  )
+
+p5
+ggsave("figures/03_correlation_heatmap.png", p5, width = 8, height = 5, dpi = 300)
