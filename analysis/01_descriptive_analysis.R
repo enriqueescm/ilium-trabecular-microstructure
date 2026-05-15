@@ -257,3 +257,49 @@ p5 <- ggplot(cor_long, aes(x = variable, y = region, fill = r)) +
 
 p5
 ggsave("figures/03_correlation_heatmap.png", p5, width = 8, height = 5, dpi = 300)
+
+# ---- SEX DIFFERENCES ----
+
+# Boxplot by sex and region for each variable
+p6 <- data %>%
+  filter(!is.na(sex)) %>%
+  pivot_longer(cols = c(bvtv, tb_th, tb_n),
+               names_to = "variable", values_to = "value") %>%
+  mutate(variable = factor(variable,
+                           levels = c("bvtv", "tb_th", "tb_n"),
+                           labels = c("BV/TV", "Tb.Th (mm)", "Tb.N (1/mm)"))) %>%
+  ggplot(aes(x = sex, y = value, fill = sex)) +
+  geom_boxplot(alpha = 0.7, outlier.size = 1) +
+  facet_grid(variable ~ region, scales = "free_y") +
+  scale_fill_manual(values = c("Male" = "#377EB8", "Female" = "#E41A1C"),
+                    name = "Sex") +
+  labs(
+    title = "Sexual Dimorphism in Trabecular Bone Microstructure",
+    subtitle = "Comparison by anatomical region | 65 individuals | 0-14 months",
+    x = NULL,
+    y = "Value",
+    caption = "microCT analysis | Ilium | First year of life"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank(),
+    strip.text = element_text(face = "bold"),
+    legend.position = "top"
+  )
+
+p6
+ggsave("figures/04_sexual_dimorphism.png", p6,
+       width = 14, height = 10, dpi = 300)
+
+# Wilcoxon test by sex for each variable and region
+sex_results <- data %>%
+  filter(!is.na(sex)) %>%
+  group_by(region) %>%
+  summarise(
+    p_bvtv = round(wilcox.test(bvtv ~ sex)$p.value, 4),
+    p_tbth = round(wilcox.test(tb_th ~ sex)$p.value, 4),
+    p_tbn  = round(wilcox.test(tb_n ~ sex)$p.value, 4)
+  )
+
+print(sex_results)
